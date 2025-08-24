@@ -11,6 +11,18 @@ module.exports = {
       defaultLocale: 'fr',    // Langue par défaut (pas de configuration multilingue additionnelle)
       locales: ['fr'],        // On ne déclare qu'une locale (pas de traduction)
     },
+    themes: ['@docusaurus/theme-mermaid'],
+    markdown: {
+      mermaid: true,
+    },
+    themeConfig: {
+      mermaid: {
+        theme: { light: 'neutral', dark: 'forest' },
+        options: {
+          maxTextSize: 100000,
+        },
+      },
+    },
     presets: [
       [
         '@docusaurus/preset-classic',
@@ -29,5 +41,8 @@ module.exports = {
         },
       ],
     ],
+     plugins: [
+    ['docusaurus-plugin-drawio', {}],
+  ],
   };
   

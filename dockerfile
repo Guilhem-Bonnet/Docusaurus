@@ -16,6 +16,15 @@ FROM base AS dev
 WORKDIR /opt/docusaurus
 ## Expose the port that Docusaurus will run on.
 EXPOSE 3000
+# Installer Java
+RUN apt-get update && \
+    apt-get install -y openjdk-17-jre-headless && \
+    apt-get clean
+
+# Définir JAVA_HOME
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
 ## Run the development server.
 CMD [ -d "node_modules" ] && npm run start -- --host 0.0.0.0 --poll 1000 || npm install && npm run start -- --host 0.0.0.0 --poll 1000
 
@@ -23,6 +32,19 @@ CMD [ -d "node_modules" ] && npm run start -- --host 0.0.0.0 --poll 1000 || npm 
 FROM base AS prod
 ## Set the working directory to `/opt/docusaurus`.
 WORKDIR /opt/docusaurus
+# Installer Java
+RUN apt-get update && \
+    apt-get install -y openjdk-17-jre-headless && \
+    apt-get clean
+
+# Définir JAVA_HOME
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
+
+# Copier le fichier plantuml.jar
+COPY ./static/plantuml.jar /opt/docusaurus/static/plantuml.jar
+
 ## Copy over the source code.
 COPY . /opt/docusaurus/
 ## Install dependencies with `--immutable` to ensure reproducibility.
