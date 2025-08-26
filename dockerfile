@@ -1,67 +1,65 @@
 # syntax=docker/dockerfile:1
 
-# Stage 1: Base image.
-## Start with a base image containing NodeJS so we can build Docusaurus.
-FROM node:lts AS base
-## Disable colour output from yarn to make logs easier to read.
+############################################
+# Base commun (Node 20 + Java optionnelle)
+############################################
+ARG NODE_IMAGE=node:20-bullseye
+
+FROM ${NODE_IMAGE} AS base
+WORKDIR /opt/docusaurus
 ENV FORCE_COLOR=0
-## Enable corepack.
-RUN corepack enable
-## Set the working directory to `/opt/docusaurus`.
-WORKDIR /opt/docusaurus
+# Java utile si tu génères des UML/PlantUML au build
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openjdk-17-jre-headless \
+ && rm -rf /var/lib/apt/lists/*
 
-# Stage 2a: Development mode.
+############################################
+# Dev (local-first : AUCUNE install ici)
+############################################
 FROM base AS dev
-## Set the working directory to `/opt/docusaurus`.
-WORKDIR /opt/docusaurus
-## Expose the port that Docusaurus will run on.
+ENV NODE_ENV=development
 EXPOSE 3000
-# Installer Java
-RUN apt-get update && \
-    apt-get install -y openjdk-17-jre-headless && \
-    apt-get clean
+# Important : on ne copie rien et on n’installe rien.
+# Le code + node_modules viennent du bind-mount via docker-compose.
+CMD ["npm","run","start","--","--host","0.0.0.0","--poll","1000"]
 
-# Définir JAVA_HOME
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-ENV PATH="$JAVA_HOME/bin:$PATH"
-
-## Run the development server.
-CMD [ -d "node_modules" ] && npm run start -- --host 0.0.0.0 --poll 1000 || npm install && npm run start -- --host 0.0.0.0 --poll 1000
-
-# Stage 2b: Production build mode.
+############################################
+# Prod (build reproductible dans l'image)
+############################################
 FROM base AS prod
-## Set the working directory to `/opt/docusaurus`.
 WORKDIR /opt/docusaurus
-# Installer Java
-RUN apt-get update && \
-    apt-get install -y openjdk-17-jre-headless && \
-    apt-get clean
+ENV NODE_ENV=production
 
-# Définir JAVA_HOME
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-ENV PATH="$JAVA_HOME/bin:$PATH"
-
-
-# Copier le fichier plantuml.jar
-COPY ./static/plantuml.jar /opt/docusaurus/static/plantuml.jar
-
-## Copy over the source code.
-COPY . /opt/docusaurus/
-## Install dependencies with `--immutable` to ensure reproducibility.
+# 1) Dépendances (couche cache) — uniquement package*.json
+COPY package.json package-lock.json* ./
 RUN npm ci
-## Build the static site.
+
+# 2) Code source
+COPY . .
+
+# 3) (facultatif) génération d'assets UML si tu en as :
+# RUN npm run uml:build
+
+# 4) Build statique
 RUN npm run build
 
-# Stage 3a: Serve with `docusaurus serve`.
-FROM prod AS serve
-## Expose the port that Docusaurus will run on.
+############################################
+# Serve (utilitaire) avec Docusaurus
+############################################
+FROM ${NODE_IMAGE} AS serve
+WORKDIR /opt/docusaurus
+ENV NODE_ENV=production
+COPY --from=prod /opt/docusaurus/build ./build
 EXPOSE 3000
-## Run the production server.
-CMD ["npm", "run", "serve", "--", "--host", "0.0.0.0", "--no-open"]
+# Non-root (l’utilisateur "node" existe dans l’image officielle)
+USER node
+CMD ["npx","docusaurus","serve","build","--host","0.0.0.0","--port","3000","--no-open"]
 
-# Stage 3b: Serve with Caddy.
+############################################
+# Caddy (recommandé pour la prod)
+############################################
 FROM caddy:2-alpine AS caddy
-## Copy the Caddyfile.
-COPY --from=prod /opt/docusaurus/Caddyfile /etc/caddy/Caddyfile
-## Copy the Docusaurus build output.
+# Build statique uniquement
 COPY --from=prod /opt/docusaurus/build /var/docusaurus
+# Ton Caddyfile (doit exister à la racine du contexte)
+COPY Caddyfile /etc/caddy/Caddyfile
