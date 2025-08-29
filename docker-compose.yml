@@ -39,7 +39,7 @@ services:
       retries: 6
     profiles: ["prod"]
 
-  # Option Caddy (si tu préfères un vrai serveur static + headers)
+  # Option Caddy (serveur static + headers)
   caddy:
     build:
       context: .
@@ -50,3 +50,4 @@ services:
 
 volumes:
   docusaurus_node_modules:
+
