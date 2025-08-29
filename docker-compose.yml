@@ -1,12 +1,52 @@
-name: "docusaurus"
+# docker-compose.yml
+name: docusaurus
 services:
-    dev:
-        build:
-            context: .
-            target: dev
-        ports:
-            - "3000:3000"
-        volumes:
-            - .:/opt/docusaurus
-        #environment:
-        #    - NODE_ENV=development
+  dev:
+    build:
+      context: .
+      target: dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/opt/docusaurus:cached
+    environment:
+      - NODE_ENV=development
+      # Hot reload fiable dans un bind‑mount
+      - CHOKIDAR_USEPOLLING=1
+      - WATCHPACK_POLLING=true
+      - TZ=America/Toronto
+    user: "${UID:-1000}:${GID:-1000}" 
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    profiles: ["dev"]
+
+  serve:
+    build:
+      context: .
+      target: serve
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - TZ=America/Toronto
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 3s
+      retries: 6
+    profiles: ["prod"]
+
+  # Option Caddy (si tu préfères un vrai serveur static + headers)
+  caddy:
+    build:
+      context: .
+      target: caddy
+    ports:
+      - "3000:3000"
+    profiles: ["caddy"]
+
+volumes:
+  docusaurus_node_modules:
