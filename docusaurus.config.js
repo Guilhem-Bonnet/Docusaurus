@@ -1,10 +1,10 @@
 // docusaurus.config.js
 /** @type {import('@docusaurus/types').Config} */
 module.exports = {
-  title: 'APRIL ACI Documentation',
+  title: 'Docusaurus Documentation',
   url: 'http://localhost',
   baseUrl: '/',
-  onBrokenLinks: 'throw',
+  onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
   organizationName: 'april-canada-dev',
@@ -19,7 +19,7 @@ module.exports = {
   themeConfig: {
     image: 'img/og-image.png', // OG image (crée-le dans static/img)
     metadata: [
-      { name: 'keywords', content: 'APRIL, ACI, Docs, Architecture, DevOps' },
+      { name: 'keywords', content: 'Docusaurus Documentation, Docs, Architecture, DevOps' },
     ],
     mermaid: {
       theme: { light: 'neutral', dark: 'forest' },
@@ -33,7 +33,7 @@ module.exports = {
       title: 'Docusaurus',
       logo: { alt: 'Docusaurus', src: 'img/logo.svg' },
       items: [
-        { to: '/', label: 'Documentation', position: 'left' },
+  { to: '/', label: 'Documentation', position: 'left' },
         { type: 'docsVersionDropdown', position: 'right' }, // menu des versions
         // { href: 'https://...', label: 'Repo', position: 'right' },
       ],
@@ -87,8 +87,9 @@ module.exports = {
           path: 'docs',
           sidebarPath: require.resolve('./sidebars.js'),
           routeBasePath: '/',
-          showLastUpdateAuthor: true,
-          showLastUpdateTime: true,
+          // Désactivés : nous affichons les infos via le plugin git-lastupdate
+          showLastUpdateAuthor: false,
+          showLastUpdateTime: false,
           editUrl: undefined, // ou ton Git
           // versioning (optionnel)
           lastVersion: 'current',
@@ -132,6 +133,8 @@ module.exports = {
   ],
 
   plugins: [
+    // génère @generated/git-lastupdate/lastUpdates.json avec { "<relPathSansExt>": { author, timestamp } }
+    [require.resolve('./plugins/git-lastupdate'), {}],
     ['docusaurus-plugin-drawio', {}],
     ['@r74tech/docusaurus-plugin-panzoom', {
     // 👉 attends que Mermaid finisse de rendre

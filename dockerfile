@@ -10,7 +10,9 @@ WORKDIR /opt/docusaurus
 ENV FORCE_COLOR=0
 # Java utile si tu génères des UML/PlantUML au build
 RUN apt-get update \
- && apt-get install -y --no-install-recommends openjdk-17-jre-headless \
+ && apt-get install -y --no-install-recommends \
+	 openjdk-17-jre-headless \
+	 git \
  && rm -rf /var/lib/apt/lists/*
 
 ############################################
@@ -22,6 +24,30 @@ EXPOSE 3000
 # Important : on ne copie rien et on n’installe rien.
 # Le code + node_modules viennent du bind-mount via docker-compose.
 CMD ["npm","run","start","--","--host","0.0.0.0","--poll","1000"]
+
+############################################
+# Dev image with deps preinstalled (for docker-compose dev service)
+############################################
+FROM base AS devimage
+WORKDIR /opt/docusaurus
+ENV NODE_ENV=development
+# Copy only package files to leverage cache
+COPY package.json package-lock.json* ./
+# Install dev dependencies inside the image so compose doesn't need to run npm ci each start
+RUN npm ci --no-audit --no-fund --include=dev
+# Mark the working dir as safe for git (avoids dubious ownership errors when mounting)
+RUN git config --global --add safe.directory /opt/docusaurus
+EXPOSE 3000
+CMD ["npm","run","start","--","--host","0.0.0.0","--poll","1000"]
+ 
+ # Snapshot installed modules to a location outside the project dir so bind-mounts don't hide it
+ RUN mkdir -p /usr/local/.image_node_modules && cp -a node_modules/. /usr/local/.image_node_modules/ || true
+ RUN chown -R node:node /usr/local/.image_node_modules || true
+
+ # Copy entrypoint into image and make executable
+ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 ############################################
 # Prod (build reproductible dans l'image)

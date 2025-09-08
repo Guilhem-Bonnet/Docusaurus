@@ -4,50 +4,71 @@ services:
   dev:
     build:
       context: .
-      target: dev
+      target: devimage
+    image: docusaurus-dev:latest
     ports:
       - "3000:3000"
     volumes:
-      - .:/opt/docusaurus:cached
-    environment:
-      - NODE_ENV=development
-      # Hot reload fiable dans un bind‑mount
-      - CHOKIDAR_USEPOLLING=1
-      - WATCHPACK_POLLING=true
-      - TZ=America/Toronto
-    user: "${UID:-1000}:${GID:-1000}" 
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
-      interval: 10s
-      timeout: 3s
-      retries: 6
-    profiles: ["dev"]
+      name: docusaurus
+      services:
+        dev:
+          build:
+            context: .
+            target: devimage
+          image: docusaurus-dev:latest
+          ports:
+            - "3000:3000"
+          volumes:
+            - ./:/opt/docusaurus:delegated
+            - docusaurus_node_modules:/opt/docusaurus/node_modules
+          environment:
+            NODE_ENV: development
+            DEBUG_GIT_LASTUPDATE: '1'
+            CHOKIDAR_USEPOLLING: '1'
+            WATCHPACK_POLLING: 'true'
+            TZ: "America/Toronto"
 
-  serve:
-    build:
-      context: .
-      target: serve
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - TZ=America/Toronto
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
-      interval: 30s
-      timeout: 3s
-      retries: 6
-    profiles: ["prod"]
+        # Builder: one-shot profile to build the site and write ./build on the host
+        builder:
+          build:
+            context: .
+            target: base
+          working_dir: /opt/docusaurus
+          volumes:
+            - ./:/opt/docusaurus:cached
+          environment:
+            NODE_ENV: development
+            TZ: "America/Toronto"
+          command: ["sh", "-c", "git config --global --add safe.directory /opt/docusaurus && npm ci --include=dev && npx @docusaurus/core@3.8.1 build"]
 
-  # Option Caddy (serveur static + headers)
-  caddy:
-    build:
-      context: .
-      target: caddy
-    ports:
-      - "3000:3000"
-    profiles: ["caddy"]
+        # Serve: serve the generated ./build directory (mount host ./build into container)
+        serve:
+          build:
+            context: .
+            target: serve
+          ports:
+            - "3000:3000"
+          volumes:
+            - ./build:/opt/docusaurus/build:ro
+          environment:
+            NODE_ENV: production
+            TZ: "America/Toronto"
+          healthcheck:
+            test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+            interval: 30s
+            timeout: 3s
+            retries: 6
+          profiles: ["prod"]
 
-volumes:
-  docusaurus_node_modules:
+        # Option Caddy (serveur static + headers)
+        caddy:
+          build:
+            context: .
+            target: caddy
+          ports:
+            - "3000:3000"
+          profiles: ["caddy"]
 
+      volumes:
+        docusaurus_node_modules: {}
+  docusaurus_node_modules: {}
